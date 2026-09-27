@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SyncUp — Sprint 0 Kickoff Plan</title>
+<style>
+:root{
+  --bg:#f7f8fa; --card:#ffffff; --text:#1a1d23; --muted:#5b6270;
+  --accent:#4f5bd5; --border:#e3e5eb; --code-bg:#0f1117; --code-text:#d6e0ff;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#14151a; --card:#1c1e24; --text:#e9eaee; --muted:#9aa0ad; --border:#2c2f38; --code-bg:#0a0b0e; --code-text:#b9c6ff; }
+}
+:root[data-theme="dark"]{ --bg:#14151a; --card:#1c1e24; --text:#e9eaee; --muted:#9aa0ad; --border:#2c2f38; --code-bg:#0a0b0e; --code-text:#b9c6ff; }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+*{box-sizing:border-box;}
+body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; line-height:1.55; }
+.wrap{ max-width:920px; margin:0 auto; padding:32px 20px 80px; }
+h1{ font-size:1.7rem; margin-bottom:4px; }
+.sub{ color:var(--muted); margin-top:0; margin-bottom:28px; font-size:0.95rem; }
+h2{ font-size:1.2rem; margin-top:44px; margin-bottom:12px; border-bottom:2px solid var(--accent); padding-bottom:6px; }
+h3{ font-size:1.02rem; margin:20px 0 8px; color:var(--accent); }
+table{ width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:14px; font-size:0.9rem; }
+th,td{ padding:9px 12px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+th{ background:var(--accent); color:#fff; font-weight:600; }
+tr:last-child td{ border-bottom:none; }
+.tablewrap{ overflow-x:auto; }
+pre{ background:var(--code-bg); color:var(--code-text); padding:14px 16px; border-radius:8px; overflow-x:auto; font-size:0.82rem; line-height:1.5; }
+code{ font-family:"SF Mono",Consolas,monospace; }
+ul{ padding-left:20px; }
+li{ margin-bottom:5px; }
+.card{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin-bottom:14px; }
+.tag{ display:inline-block; background:var(--accent); color:#fff; font-size:0.72rem; padding:2px 8px; border-radius:20px; margin-right:6px; }
+.mermaid{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>🚀 Project SyncUp — Sprint 0 Kickoff Plan</h1>
+<p class="sub">Everything the team needs for Day 1: setup plan, architecture, repo layout, task backlog, and what to learn alongside building.</p>
+
+<h2>1. Sprint 0 — First 5 Days</h2>
+<div class="tablewrap"><table>
+<tr><th>Day</th><th>Focus</th><th>Deliverables</th></tr>
+<tr><td><b>Day 1</b></td><td>Alignment & environment</td><td>Group 1 (Client & Real-Time) and Group 2 (Backend & Platform) confirmed, GitHub org + monorepo created, stack finalized, dev environment (Docker) running for both groups</td></tr>
+<tr><td><b>Day 2</b></td><td>Architecture & contracts</td><td>Finalize architecture diagram, agree on DB schema draft, and <b>freeze the API + socket event contract</b> — this is what lets both groups split and work independently starting Day 3</td></tr>
+<tr><td><b>Day 3</b></td><td>Skeleton builds</td><td>Next.js app scaffolded + auth stub; Node/Go API scaffolded; Postgres + Redis containers running; CI pipeline (lint+build) green</td></tr>
+<tr><td><b>Day 4</b></td><td>Vertical slice #1 — <b>merge day</b></td><td>Group 1 swaps its mock API/socket for Group 2's real endpoints; one feature works end-to-end: login → create Squad → see it on The Hub (proves both groups' work actually connects)</td></tr>
+<tr><td><b>Day 5</b></td><td>Review & Sprint 1 planning</td><td>Demo the vertical slice, retro on blockers, groom backlog, assign Sprint 1 tickets per team</td></tr>
+</table></div>
+
+<h2>2. System Architecture</h2>
+<pre class="mermaid">
+graph TD
+  Client["Next.js Client (React, TS, Tailwind)"]
+  API["API Gateway (Node.js/Go REST)"]
+  WS["WebSocket Server (Socket.io)"]
+  RTC["WebRTC Signaling + STUN/TURN"]
+  DB[("PostgreSQL")]
+  Cache[("Redis")]
+  Queue["Kafka / RabbitMQ"]
+  Worker["Media Worker (FFmpeg, Docker)"]
+  Storage[("S3 / GCS")]
+
+  Client -->|HTTPS| API
+  Client <-->|WS events| WS
+  Client <-->|P2P media| RTC
+  API --> DB
+  API --> Cache
+  API -->|pre-signed URL| Storage
+  WS --> Cache
+  API -->|publish events| Queue
+  Queue --> Worker
+  Worker --> Storage
+  Worker --> DB
+</pre>
+
+<h2>3. Monorepo Structure</h2>
+<pre><code>syncup/
+├── apps/
+│   ├── web/                # Next.js frontend (Hub, Chat UI, Sprint Board, Vault)
+│   └── meet/                # WebRTC call UI (can be a route inside web/)
+├── services/
+│   ├── api/                 # REST API (auth, squads, tasks, resources)
+│   ├── realtime/             # Socket.io chat + presence server
+│   └── media-worker/          # FFmpeg transcode worker, consumes Kafka queue
+├── packages/
+│   ├── ui/                    # Shared React components (Tailwind)
+│   ├── types/                 # Shared TS types / API contracts
+│   └── config/                 # ESLint, tsconfig, tailwind presets
+├── infra/
+│   ├── docker-compose.yml       # Local dev: postgres, redis, kafka
+│   ├── terraform/                # Cloud infra as code
+│   └── k8s/ or ecs/                # Deployment manifests
+├── .github/workflows/               # CI/CD pipelines
+└── docs/
+    ├── architecture.md
+    └── api-contracts.md
+</code></pre>
+
+<h2>4. How the 2 Groups Work in Parallel</h2>
+<div class="card"><b>The trick: Group 1 never waits on Group 2's real backend.</b> Once the contract is frozen (Day 2), Group 1 builds against a <i>mock</i> of it, and Group 2 builds the real thing behind that same contract. They only need to sync when the contract changes or at planned merge points.</div>
+
+<div class="tablewrap"><table>
+<tr><th>Step</th><th>Group 1 does</th><th>Group 2 does</th></tr>
+<tr><td>Day 2 — Contract freeze</td><td>Reviews & agrees on REST endpoints + socket event names/payloads</td><td>Authors the contract (endpoints, socket events, DB shape) and shares it as a shared <code>types/</code> package or OpenAPI/JSON schema doc</td></tr>
+<tr><td>Day 3</td><td>Builds UI against a <b>mock server</b> (MSW, json-server, or a fake Socket.io emitter) that returns contract-shaped fake data</td><td>Builds the real API, DB, and Socket.io server behind the same contract</td></tr>
+<tr><td>Day 4 — Merge</td><td>Swaps mock base URL / socket URL for Group 2's real, running service</td><td>Exposes a stable local/staging endpoint for Group 1 to point at</td></tr>
+<tr><td>Ongoing</td><td>Any UI need for a new field/event → proposes a contract change</td><td>Approves contract change, updates shared types, implements it</td></tr>
+</table></div>
+
+<div class="card" style="border-color:var(--accent)"><b>Practical setup:</b>
+<ul>
+<li>Put shared TypeScript types/interfaces in <code>packages/types/</code> in the monorepo — both groups import from the same source, so a contract change is a single PR both sides can see.</li>
+<li>Group 1 stubs the backend with <a href="https://mswjs.io" target="_blank" rel="noopener">Mock Service Worker</a> for REST and a tiny fake emitter for socket events — this is what removes the daily dependency on Group 2 being "done".</li>
+<li>Schedule a 15-min daily sync + a longer merge session on Day 4 and end of each sprint — that's the "meet to merge" checkpoint, not a constant back-and-forth.</li>
+</ul></div>
+
+<h2>5. Task Backlog — 2 Groups (Sprint 0/1)</h2>
+
+<h3>🎨 Group 1 — Client Experience (Frontend UI)</h3>
+<div class="tablewrap"><table>
+<tr><th>Task</th><th>Priority</th></tr>
+<tr><td>Scaffold Next.js + TypeScript + Tailwind project</td><td>P0</td></tr>
+<tr><td>Build The Hub dashboard shell (layout, nav, responsive grid)</td><td>P0</td></tr>
+<tr><td>Build Chat UI components (message list, input, markdown render)</td><td>P0</td></tr>
+<tr><td>Set up global state (Zustand/Redux) for squad + auth state</td><td>P1</td></tr>
+<tr><td>Build Sprint Board Kanban UI (drag-drop, static data first)</td><td>P1</td></tr>
+<tr><td>Build call UI (video tiles, mute/camera controls) wired to Group 2's signaling</td><td>P1</td></tr>
+<tr><td>Implement optimistic update pattern on one action (e.g. task move)</td><td>P2</td></tr>
+</table></div>
+
+<h3>🗄️ Group 2 — Backend, Real-Time & Platform</h3>
+<div class="tablewrap"><table>
+<tr><th>Task</th><th>Priority</th></tr>
+<tr><td>Design ER diagram: Users, Squads, Memberships, Tasks, Resources</td><td>P0</td></tr>
+<tr><td>Set up Postgres + migrations tool (Prisma/Drizzle/Knex)</td><td>P0</td></tr>
+<tr><td>Build auth endpoints (signup/login/JWT)</td><td>P0</td></tr>
+<tr><td>Stand up Socket.io server, connect/join-room events</td><td>P0</td></tr>
+<tr><td>Design chat event contract (message, typing, read-receipt) and persistence</td><td>P0</td></tr>
+<tr><td>Write docker-compose for local dev (web, api, postgres, redis)</td><td>P0</td></tr>
+<tr><td>Implement server-side reconnect/session-resume handling for sockets</td><td>P1</td></tr>
+<tr><td>Build WebRTC signaling server + STUN server integration</td><td>P1</td></tr>
+<tr><td>Set up GitHub Actions CI (lint, test, build on PR)</td><td>P1</td></tr>
+<tr><td>Add Redis caching for squad state + presence + task-state reads</td><td>P1</td></tr>
+<tr><td>Provision cloud storage bucket (S3/GCS) + pre-signed URL flow</td><td>P1</td></tr>
+<tr><td>Plan TURN server fallback for restrictive NATs</td><td>P2</td></tr>
+<tr><td>Write transactional update for concurrent Kanban card moves</td><td>P2</td></tr>
+<tr><td>Draft Terraform for base infra (VPC, DB, container service)</td><td>P2</td></tr>
+<tr><td>Set up basic Prometheus/Grafana dashboard</td><td>P2</td></tr>
+</table></div>
+
+<div class="card" style="border-color:var(--accent)"><b>Note on 2-group split:</b> Group 1 now owns pure UI — rendering, layout, and client state, including the chat and call interfaces, but not the networking underneath them. Group 2 owns everything that moves or stores data: the database, auth, WebSocket server, WebRTC signaling, caching, and infra. The hand-off point is a set of socket events and REST endpoints Group 2 exposes and Group 1 consumes — define that contract on Day 1 so neither group blocks the other.</div>
+
+<h2>6. Learning Path — Alongside the Work</h2>
+
+<div class="card"><span class="tag">Module A · Group 1</span><b>Frontend UI & State</b>
+<ul>
+<li>CSS Grid/Flexbox for adaptive dashboards — build The Hub layout as practice</li>
+<li>Global state: pick one of Context API / Redux Toolkit / Zustand and learn it deeply rather than sampling all three</li>
+<li>List virtualization (react-window or react-virtual) — needed before Live Chat history gets long</li>
+<li>Optimistic UI patterns — study how apps like Linear/Trello roll back failed updates</li>
+</ul></div>
+
+<div class="card"><span class="tag">Module B · Group 2</span><b>Real-Time & Concurrency (your focus)</b>
+<ul>
+<li>WebSocket protocol basics — handshake, frames, heartbeat/ping-pong</li>
+<li>Socket.io rooms & namespaces for per-squad channels, and how to design the chat event contract Group 1's UI will consume</li>
+<li>WebRTC fundamentals: ICE, STUN vs TURN, SDP offer/answer flow, signaling server design</li>
+<li>Reconnection strategies — exponential backoff, session resumption, presence tracking in Redis</li>
+</ul></div>
+
+<div class="card"><span class="tag">Module C · Group 2</span><b>Media & Cloud Infra</b>
+<ul>
+<li>S3/GCS pre-signed URLs — direct browser-to-cloud upload pattern</li>
+<li>FFmpeg basics: transcoding formats/bitrates for stored recordings</li>
+<li>Docker fundamentals — multi-stage builds, container networking</li>
+<li>Background job processing (BullMQ or a Kafka consumer worker)</li>
+</ul></div>
+
+<div class="card"><span class="tag">Module D · Group 2</span><b>Databases & Distributed Design</b>
+<ul>
+<li>Relational schema design — normalize Users/Squads/Tasks with proper FKs</li>
+<li>ACID transactions & row-level locking to prevent race conditions</li>
+<li>Redis data structures (hash, sorted sets) for presence & caching</li>
+<li>Event-driven basics: Kafka/RabbitMQ producer-consumer model</li>
+</ul></div>
+
+</div>
+
+<!--claude-mermaid-runtime-begin:3477-->
+<style>.mermaid-diagram{margin-block:4px}.mermaid-diagram svg{display:block;margin:0 auto;max-width:100%;height:auto}</style>
+<script src="/_runtime/mermaid-11.16.1.min.js"></script>
+<script>(function(){
+var CFG={"palettes":{"light":{"surface":"#f4efe4","text":"#42392e","line":"#8a7f6d","border":"#7a6c52","bg":"#fffdf8"},"dark":{"surface":"#262b34","text":"#f2f3f5","line":"#a8adb8","border":"#9aa4b8","bg":"#1f232b"}}};
+if(typeof mermaid==='undefined')return;
+var pres=Array.prototype.slice.call(document.querySelectorAll('pre.mermaid')).filter(function(p){if(p.hasAttribute('data-claude-mermaid-claimed'))return false;p.setAttribute('data-claude-mermaid-claimed','1');return true;});
+if(!pres.length)return;
+var mq=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
+var root=document.documentElement;
+var items=pres.map(function(pre){
+var mount=document.createElement('div');mount.className='mermaid-diagram';
+return {pre:pre,mount:mount,src:pre.textContent||''};
+});
+var seq=0;
+var renderGen=0;
+var lastKey='';
+function pageBg(fallback){
+var els=[document.body,document.documentElement];
+for(var i=0;i<els.length;i++){
+var c=els[i]&&getComputedStyle(els[i]).backgroundColor;
+if(c&&c!=='transparent'&&c!=='rgba(0, 0, 0, 0)')return c;
+}
+return fallback;
+}
+function render(){
+var theme=root.getAttribute('data-theme');
+var dark=theme==='dark'||(!!(mq&&mq.matches)&&theme!=='light');
+var pal=dark?CFG.palettes.dark:CFG.palettes.light;
+var bg=pageBg(pal.bg);
+var key=(dark?'d':'l')+'|'+bg;
+if(key===lastKey)return;
+lastKey=key;
+var gen=++renderGen;
+var font=getComputedStyle(document.body).fontFamily||'sans-serif';
+var nat={useMaxWidth:false};
+mermaid.initialize({
+startOnLoad:false,securityLevel:'strict',theme:'base',
+flowchart:nat,sequence:nat,er:nat,state:nat,class:nat,pie:nat,
+gantt:nat,journey:nat,timeline:nat,gitGraph:nat,mindmap:nat,xyChart:nat,
+quadrantChart:nat,sankey:nat,c4:nat,requirement:nat,block:nat,
+packet:nat,kanban:nat,architecture:nat,radar:nat,
+themeVariables:{background:bg,mainBkg:pal.surface,primaryColor:pal.surface,
+primaryTextColor:pal.text,lineColor:pal.line,primaryBorderColor:pal.border,
+nodeBorder:pal.border,clusterBorder:pal.border,edgeLabelBackground:bg,
+clusterBkg:'rgba(127,127,127,0.07)',titleColor:pal.text,
+darkMode:dark,rowOdd:bg,rowEven:'rgba(127,127,127,0.07)',
+attributeBackgroundColorOdd:bg,attributeBackgroundColorEven:'rgba(127,127,127,0.07)',
+fontSize:'16px',fontFamily:font},
+themeCSS:'.node rect, .node circle, .node polygon, .node path, .cluster rect { stroke-width: 2px; }'
+});
+items.forEach(function(it){
+var id='claude-mermaid-'+seq++;
+mermaid.render(id,it.src).then(function(r){
+if(gen!==renderGen)return;
+var prev=it.pre.previousElementSibling;
+if(prev&&prev.className==='mermaid-diagram'&&prev!==it.mount)return;
+it.mount.innerHTML=r.svg;
+if(!it.mount.parentNode)it.pre.parentNode.insertBefore(it.mount,it.pre);
+it.pre.style.display='none';
+},function(){
+var scratch=document.getElementById(id);
+if(scratch)scratch.parentNode.removeChild(scratch);
+scratch=document.getElementById('d'+id);
+if(scratch)scratch.parentNode.removeChild(scratch);
+if(gen!==renderGen)return;
+if(it.mount.parentNode)it.mount.parentNode.removeChild(it.mount);
+it.pre.style.display='';
+});
+});
+}
+render();
+if(mq&&mq.addEventListener)mq.addEventListener('change',render);
+if(typeof MutationObserver!=='undefined')new MutationObserver(render).observe(root,{attributes:true,attributeFilter:['data-theme']});
+})();</script>
+<!--claude-mermaid-runtime-end-->
+</body>
+</html>
